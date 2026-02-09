@@ -278,7 +278,30 @@ export const getKPIs = (chats, dateRange = null, ignoredNumbers = []) => {
                 (isBefore(checkDate, end) || isEqual(checkDate, end));
         }
         return true;
+        return true;
     });
+
+    // New Metric: "New Conversations" (First contact in range)
+    const newConversations = filteredChats.filter(chat => {
+        if (!processDateRange || !processDateRange.start) return true; // If no range, all are technically "new" to the view? No, use full history logic or just count all? 
+        // Better logic: new conversations are those whose FIRST message is in the range
+        // However, 'filteredChats' only contains chats with ACTIVITY in range. 
+        // We need to check the very first message of the chat history.
+        const firstMsg = chat.messages[0];
+        const firstDate = parseDate(firstMsg.date);
+
+        if (!firstDate) return false;
+
+        const start = startOfDay(new Date(processDateRange.start));
+        const end = startOfDay(new Date(processDateRange.end));
+        end.setHours(23, 59, 59);
+
+        return (isAfter(firstDate, start) || isEqual(firstDate, start)) &&
+            (isBefore(firstDate, end) || isEqual(firstDate, end));
+    }).length;
+
+    // Helper to capture range for new convo check
+    var processDateRange = dateRange;
 
     const totalLeads = filteredChats.length;
     const leadsCaptured = filteredChats.filter(c => c.funnelStep === 'Lead Captured' || c.funnelStep === 'Quote Sent').length;
@@ -375,6 +398,7 @@ export const getKPIs = (chats, dateRange = null, ignoredNumbers = []) => {
         impatience,
         nightQueries,
         activeUsers: filteredChats.length,
+        newConversations: dateRange && dateRange.start ? newConversations : filteredChats.length, // If no range, all are "new" in history context? Or just total? Let's match total
         nits: filteredChats.filter(c => c.nit).length,
         // Using filtered count
         highValueCount: filteredChats.filter(c => c.isHighValue).length

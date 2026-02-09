@@ -198,9 +198,9 @@ function App() {
         {activeTab === 'overview' && (
           <div className="fade-in">
             <div className="stats-banner">
-              <StatCard label="Usuarios Activos" value={kpis.totalLeads} detail="Filtrados por fecha" color="#3b82f6" icon={<Users size={16} />} />
-              <StatCard label="Mensajes Totales" value={kpis.totalMsgs} detail="Interacción neta" color="#6366f1" icon={<MessageSquare size={16} />} />
-              <StatCard label="Nuevos Leads (AI)" value={kpis.highValueCount + 12} detail="Score > 35 pts" color="#10b981" icon={<Brain size={16} />} />
+              <StatCard label="Conversaciones Nuevas" value={kpis.newConversations} detail="Primera vez en rango" color="#10b981" icon={<MessageSquare size={16} />} />
+              <StatCard label="Total Activos" value={kpis.activeUsers} detail="Inc. recurrentes" color="#3b82f6" icon={<Users size={16} />} />
+              <StatCard label="Mensajes Totales" value={kpis.totalMsgs} detail="Interacción neta" color="#6366f1" icon={<Activity size={16} />} />
               <StatCard label='Tasa de "Ghosting"' value={`${kpis.ghostingRate}%`} detail="Abandono post-cierre" color="#f43f5e" icon={<Ghost size={16} />} />
             </div>
 
