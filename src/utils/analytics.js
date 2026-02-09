@@ -304,6 +304,7 @@ export const getKPIs = (chats, dateRange = null, ignoredNumbers = []) => {
             { label: '1 - 4 Horas', count: dist.slow, perc: 'Lento', color: '#6366f1' },
             { label: '> 4 Horas', count: dist.critical, perc: 'Crítico', color: '#ef4444' }
         ],
+        totalResponses: dist.fast + dist.good + dist.medium + dist.slow + dist.critical,
         // SMART SORTED HIGH VALUE
         highValueContacts: filteredChats.filter(c => c.isHighValue).sort((a, b) => b.score - a.score),
         emails: filteredChats.map(c => ({ Nombre: c.capturedName || 'Cliente', Email: c.email, Telefono: c.chatId, Score: c.score })).filter(e => e.Email),
@@ -356,4 +357,56 @@ export const getInsights = (kpis) => {
     }
 
     return insights;
+};
+
+export const getComparisonData = (chats, period = 'month') => {
+    const groups = {};
+
+    chats.forEach(chat => {
+        const date = parseDate(chat.lastActivity);
+        if (!date) return;
+
+        let key;
+        if (period === 'month') {
+            key = format(date, 'yyyy-MM');
+        } else {
+            // ISO Week
+            key = `S${format(date, 'I')}-${format(date, 'yyyy')}`;
+        }
+
+        if (!groups[key]) {
+            groups[key] = {
+                period: key,
+                leads: 0,
+                totalResponseTime: 0,
+                responseCount: 0,
+                fastResponses: 0,
+                ghostingCount: 0
+            };
+        }
+
+        groups[key].leads++;
+        groups[key].totalResponseTime += chat.avgResponseTime;
+        if (chat.avgResponseTime > 0) groups[key].responseCount++;
+
+        // Fast responses (< 15 min)
+        const chatFast = chat.responseTimes.filter(t => t < 15).length;
+        const chatTotal = chat.responseTimes.length;
+        if (chatTotal > 0 && (chatFast / chatTotal) > 0.5) groups[key].fastResponses++;
+
+        // Ghosting check
+        const lastMsg = chat.messages[chat.messages.length - 1];
+        const hasCTA = chat.messages.some(m => m.type === 'Sended' && (m.content.includes('necesito') || m.content.includes('?')));
+        if (hasCTA && lastMsg.type === 'Sended') groups[key].ghostingCount++;
+    });
+
+    return Object.values(groups)
+        .sort((a, b) => a.period.localeCompare(b.period))
+        .map(g => ({
+            period: g.period,
+            leads: g.leads,
+            avgResp: g.responseCount > 0 ? Math.round(g.totalResponseTime / g.responseCount) : 0,
+            fastRate: g.leads > 0 ? Math.round((g.fastResponses / g.leads) * 100) : 0,
+            ghostingRate: g.leads > 0 ? Math.round((g.ghostingCount / g.leads) * 100) : 0
+        }));
 };

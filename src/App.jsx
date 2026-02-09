@@ -1,15 +1,16 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
-  Users, MessageSquare, Clock, TrendingUp, Download, Upload,
   AlertCircle, FileText, Target, Activity, BarChart3, Globe, Zap,
-  ChevronRight, Phone, Mail, ExternalLink, ArrowRight, Ghost, Brain, Calendar, Trash2
+  ChevronRight, Phone, Mail, ExternalLink, ArrowRight, Ghost, Brain, Calendar, Trash2,
+  DollarSign, TrendingDown, Clock3, Sparkles, Key
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, AreaChart, Area
 } from 'recharts';
 import * as XLSX from 'xlsx';
-import { parseWhatsAppCSV, getKPIs, getInsights } from './utils/analytics';
+import { parseWhatsAppCSV, getKPIs, getInsights, getComparisonData } from './utils/analytics';
+import { generateAIReport } from './utils/aiService';
 import { format } from 'date-fns';
 
 const COLORS = ['#3b82f6', '#6366f1', '#10b981', '#f59e0b', '#f43f5e'];
@@ -21,6 +22,16 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [persistenceMsg, setPersistenceMsg] = useState('');
+  const [compPeriod, setCompPeriod] = useState('month');
+
+  // AI & New Features State
+  const [apiKey, setApiKey] = useState(localStorage.getItem('gemini_api_key') || '');
+  const [aiReport, setAiReport] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [ticketValue, setTicketValue] = useState(localStorage.getItem('avg_ticket') || 500);
+
+  // Comparison Data Logic
+  const comparisonData = useMemo(() => getComparisonData(data, compPeriod), [data, compPeriod]);
 
   // 1. Persistence Logic: Load on Mount
   useEffect(() => {
@@ -125,15 +136,25 @@ function App() {
             style={{ marginBottom: '0.5rem', justifyContent: 'flex-start', background: activeTab === 'overview' ? 'rgba(255,255,255,0.1)' : 'transparent' }}>
             <Activity size={18} /> Resumen General
           </button>
+          <button className={`btn btn-ghost w-full ${activeTab === 'finance' ? 'active-nav' : ''}`}
+            onClick={() => setActiveTab('finance')}
+            style={{ marginBottom: '0.5rem', justifyContent: 'flex-start', background: activeTab === 'finance' ? 'rgba(255,255,255,0.1)' : 'transparent' }}>
+            <DollarSign size={18} /> Finanzas & Proyección
+          </button>
+          <button className={`btn btn-ghost w-full ${activeTab === 'productivity' ? 'active-nav' : ''}`}
+            onClick={() => setActiveTab('productivity')}
+            style={{ marginBottom: '0.5rem', justifyContent: 'flex-start', background: activeTab === 'productivity' ? 'rgba(255,255,255,0.1)' : 'transparent' }}>
+            <Clock3 size={18} /> Productividad TEAM
+          </button>
           <button className={`btn btn-ghost w-full ${activeTab === 'leads' ? 'active-nav' : ''}`}
             onClick={() => setActiveTab('leads')}
             style={{ marginBottom: '0.5rem', justifyContent: 'flex-start', background: activeTab === 'leads' ? 'rgba(255,255,255,0.1)' : 'transparent' }}>
             <Brain size={18} /> Smart Leads (AI)
           </button>
-          <button className={`btn btn-ghost w-full ${activeTab === 'insights' ? 'active-nav' : ''}`}
-            onClick={() => setActiveTab('insights')}
-            style={{ marginBottom: '0.5rem', justifyContent: 'flex-start', background: activeTab === 'insights' ? 'rgba(255,255,255,0.1)' : 'transparent' }}>
-            <AlertCircle size={18} /> Estrategia
+          <button className={`btn btn-ghost w-full ${activeTab === 'ai_strategy' ? 'active-nav' : ''}`}
+            onClick={() => setActiveTab('ai_strategy')}
+            style={{ marginBottom: '0.5rem', justifyContent: 'flex-start', background: activeTab === 'ai_strategy' ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.05)', color: activeTab === 'ai_strategy' ? '#3b82f6' : 'white' }}>
+            <Sparkles size={18} /> Estrategia IA (Gemini)
           </button>
         </nav>
 
@@ -203,6 +224,67 @@ function App() {
               </div>
             </div>
 
+            <div className="card" style={{ marginBottom: '2rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <h3 className="brand-font" style={{ fontSize: '1.1rem', color: '#475569', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Calendar size={18} /> Evolución de la Atención
+                </h3>
+                <div className="btn-group" style={{ display: 'flex', gap: '0.25rem', background: '#f1f5f9', padding: '0.25rem', borderRadius: '8px' }}>
+                  <button
+                    className={`btn btn-ghost btn-sm ${compPeriod === 'month' ? 'active-tab' : ''}`}
+                    onClick={() => setCompPeriod('month')}
+                    style={{ fontSize: '0.75rem', padding: '0.25rem 0.75rem', borderRadius: '6px', background: compPeriod === 'month' ? 'white' : 'transparent', boxShadow: compPeriod === 'month' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}
+                  >Meses</button>
+                  <button
+                    className={`btn btn-ghost btn-sm ${compPeriod === 'week' ? 'active-tab' : ''}`}
+                    onClick={() => setCompPeriod('week')}
+                    style={{ fontSize: '0.75rem', padding: '0.25rem 0.75rem', borderRadius: '6px', background: compPeriod === 'week' ? 'white' : 'transparent', boxShadow: compPeriod === 'week' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}
+                  >Semanas</button>
+                </div>
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table className="resp-table">
+                  <thead>
+                    <tr>
+                      <th>Periodo</th>
+                      <th>Leads</th>
+                      <th>Resp. Promedio</th>
+                      <th>% Rápido (&lt;15m)</th>
+                      <th>Ghosting</th>
+                      <th>Tendencia</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {comparisonData.map((row, i) => {
+                      const prevRow = comparisonData[i - 1];
+                      const trend = !prevRow ? 'neutral' : (row.avgResp < prevRow.avgResp ? 'up' : 'down');
+                      return (
+                        <tr key={i}>
+                          <td style={{ fontWeight: 600 }}>{row.period}</td>
+                          <td>{row.leads}</td>
+                          <td>{row.avgResp} min</td>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span>{row.fastRate}%</span>
+                              <div style={{ width: '40px', height: '4px', background: '#e2e8f0', borderRadius: '2px' }}>
+                                <div style={{ width: `${row.fastRate}%`, height: '100%', background: row.fastRate > 60 ? '#10b981' : '#f59e0b', borderRadius: '2px' }} />
+                              </div>
+                            </div>
+                          </td>
+                          <td style={{ color: row.ghostingRate > 50 ? '#f43f5e' : '#64748b' }}>{row.ghostingRate}%</td>
+                          <td>
+                            {trend === 'up' && <span style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}><TrendingUp size={14} /> Mejora</span>}
+                            {trend === 'down' && <span style={{ color: '#f43f5e', display: 'flex', alignItems: 'center', gap: '4px' }}><TrendingUp size={14} style={{ transform: 'rotate(180deg)' }} /> Baja</span>}
+                            {trend === 'neutral' && <span style={{ color: '#94a3b8' }}>-</span>}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
             <div className="chart-row">
               <div className="card chart-card">
                 <h3><BarChart3 size={18} /> Velocidad de Respuesta</h3>
@@ -220,7 +302,7 @@ function App() {
                       <tr key={i}>
                         <td style={{ fontWeight: 600 }}>{row.label}</td>
                         <td>{row.count}</td>
-                        <td>{Math.round((row.count / kpis.totalLeads) * 100) || 0}%</td>
+                        <td>{kpis.totalResponses > 0 ? Math.round((row.count / kpis.totalResponses) * 100) : 0}%</td>
                         <td><span className="p-pill" style={{ background: `${row.color}15`, color: row.color }}>{row.perc}</span></td>
                       </tr>
                     ))}
@@ -364,6 +446,129 @@ function App() {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+        {activeTab === 'finance' && (
+          <div className="fade-in">
+            <div className="stats-banner">
+              <StatCard label="Pipeline Potencial" value={`$${(kpis.highValueCount * ticketValue).toLocaleString()}`} detail="High Value Leads" color="#10b981" icon={<DollarSign size={16} />} />
+              <StatCard label="Dinero en Riesgo" value={`$${(Math.round(kpis.totalLeads * (kpis.ghostingRate / 100)) * ticketValue).toLocaleString()}`} detail="Por Ghosting" color="#f43f5e" icon={<TrendingDown size={16} />} />
+              <div className="card stat-card" style={{ '--color': '#6366f1' }}>
+                <span className="stat-label">Ticket Promedio (USD)</span>
+                <input
+                  type="number"
+                  value={ticketValue}
+                  onChange={(e) => {
+                    setTicketValue(e.target.value);
+                    localStorage.setItem('avg_ticket', e.target.value);
+                  }}
+                  className="input-field"
+                  style={{ marginTop: '0.5rem', width: '100%' }}
+                />
+              </div>
+            </div>
+            <div className="card">
+              <h3>Proyección de Ingresos Perdidos</h3>
+              <p style={{ color: '#64748b', marginBottom: '1rem' }}>
+                Basado en un ticket promedio de ${ticketValue} y una tasa de ghosting del {kpis.ghostingRate}%.
+              </p>
+              <div style={{ height: '20px', background: '#f1f5f9', borderRadius: '10px', overflow: 'hidden', display: 'flex' }}>
+                <div style={{ width: `${100 - kpis.ghostingRate}%`, background: '#10b981', height: '100%' }} title="Retenido"></div>
+                <div style={{ width: `${kpis.ghostingRate}%`, background: '#f43f5e', height: '100%' }} title="Perdido"></div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem', fontSize: '0.8rem' }}>
+                <span>Ingreso Retenido</span>
+                <span style={{ color: '#f43f5e' }}>Pérdida Estimada: ${(Math.round(kpis.totalLeads * (kpis.ghostingRate / 100)) * ticketValue).toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'productivity' && (
+          <div className="fade-in">
+            <div className="card">
+              <h3>Matriz de "Horas de Oro"</h3>
+              <p style={{ color: '#64748b', marginBottom: '1rem' }}>Momentos con mayor volumen de mensajes entrantes.</p>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={kpis.hourMap}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="hour" stroke="#94a3b8" fontSize={10} />
+                  <YAxis stroke="#94a3b8" fontSize={10} />
+                  <ReTooltip cursor={{ fill: '#f1f5f9' }} />
+                  <Bar dataKey="value" fill="#8b5cf6" radius={[4, 4, 0, 0]} name="Mensajes" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'ai_strategy' && (
+          <div className="fade-in card" style={{ border: '1px solid #3b82f6' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
+              <div style={{ padding: '0.8rem', background: '#3b82f6', borderRadius: '12px', color: 'white' }}>
+                <Sparkles size={24} />
+              </div>
+              <div>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Witronix AI Analyst</h2>
+                <p style={{ color: '#64748b' }}>Powered by Google Gemini 2.0 Flash</p>
+              </div>
+            </div>
+
+            {!apiKey ? (
+              <div style={{ background: '#f8fafc', padding: '2rem', borderRadius: '12px', textAlign: 'center' }}>
+                <Key size={40} color="#94a3b8" style={{ marginBottom: '1rem' }} />
+                <h3>Configura tu API Key</h3>
+                <p style={{ marginBottom: '1rem', color: '#64748b' }}>Para usar la inteligencia real, necesitas una API Key de Google AI Studio (Gratis).</p>
+                <input
+                  type="password"
+                  placeholder="Pegar API Key aquí..."
+                  className="input-field"
+                  style={{ maxWidth: '400px', margin: '0 auto 1rem' }}
+                  onChange={(e) => {
+                    const key = e.target.value;
+                    setApiKey(key);
+                    localStorage.setItem('gemini_api_key', key);
+                  }}
+                />
+                <p style={{ fontSize: '0.8rem', color: '#cbd5e1' }}>Tu clave se guarda localmente en tu navegador.</p>
+              </div>
+            ) : (
+              <div>
+                {!aiReport ? (
+                  <div style={{ textAlign: 'center', padding: '3rem' }}>
+                    <button
+                      className="btn btn-primary"
+                      style={{ fontSize: '1.2rem', padding: '1rem 2rem', background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)', border: 'none' }}
+                      onClick={async () => {
+                        setAiLoading(true);
+                        try {
+                          const report = await generateAIReport(apiKey, kpis, insights);
+                          setAiReport(report);
+                        } catch (e) {
+                          alert(e.message);
+                        }
+                        setAiLoading(false);
+                      }}
+                      disabled={aiLoading}
+                    >
+                      {aiLoading ? (
+                        <><Sparkles className="spin" size={20} /> Analizando Datos...</>
+                      ) : (
+                        <><Sparkles size={20} /> Generar Reporte Estratégico</>
+                      )}
+                    </button>
+                    <p style={{ marginTop: '1rem', color: '#64748b' }}>La IA analizará {kpis.totalLeads} chats y detectará patrones ocultos.</p>
+                  </div>
+                ) : (
+                  <div className="markdown-body" style={{ padding: '1rem', background: '#f8fafc', borderRadius: '8px', lineHeight: '1.6' }}>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+                      <button className="btn btn-ghost" onClick={() => setAiReport(null)}>Nueva Consulta</button>
+                    </div>
+                    <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', color: '#334155' }}>{aiReport}</pre>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </main>
