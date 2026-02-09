@@ -1,5 +1,5 @@
 import Papa from 'papaparse';
-import { parse, format, differenceInMinutes, startOfDay, isBefore, isAfter, isEqual } from 'date-fns';
+import { parse, format, differenceInMinutes, startOfDay, isBefore, isAfter, isEqual, isWeekend, addDays, setHours, setMinutes } from 'date-fns';
 
 // Helper for robust date parsing to fix "Night Queries" and general date issues
 const parseDate = (dateStr) => {
@@ -27,6 +27,63 @@ const parseDate = (dateStr) => {
     } catch (e) { }
 
     return null;
+};
+
+// BUSINESS HOURS CALCULATOR (Mon-Fri, 8:00 - 18:00)
+const calculateBusinessMinutes = (start, end) => {
+    if (!start || !end || isAfter(start, end)) return 0;
+
+    let totalMinutes = 0;
+    let current = new Date(start);
+    const final = new Date(end);
+
+    while (isBefore(current, final)) {
+        // If current is weekend, skip to Monday 8:00
+        if (isWeekend(current)) {
+            current = addDays(current, 1);
+            current = setHours(setMinutes(current, 0), 8); // Reset to start of day
+            continue;
+        }
+
+        // Define Work day for CURRENT date
+        const workStart = setHours(setMinutes(new Date(current), 0), 8);
+        const workEnd = setHours(setMinutes(new Date(current), 0), 18);
+
+        // If current is after workEnd, skip to next day 8:00
+        if (isAfter(current, workEnd)) {
+            current = addDays(current, 1);
+            current = setHours(setMinutes(current, 0), 8);
+            continue;
+        }
+
+        // Assume we can count some minutes today
+        // Effective start for today is Max(current, workStart)
+        const effectiveStart = isAfter(current, workStart) ? current : workStart;
+
+        // Effective end for today is Min(final, workEnd)
+        // Check if final is on the same day?
+        let effectiveEnd = workEnd;
+        if (isBefore(final, workEnd) && isEqual(startOfDay(final), startOfDay(current))) {
+            effectiveEnd = final;
+        }
+
+        // If effectiveStart < effectiveEnd, add diff
+        if (isBefore(effectiveStart, effectiveEnd)) {
+            totalMinutes += differenceInMinutes(effectiveEnd, effectiveStart);
+        }
+
+        // Move current to next day 8:00 if we haven't reached final
+        // Optimization: If final is same day, loop breaks naturally? 
+        // We need to advance 'current' to avoid infinite loop
+        if (isEqual(startOfDay(final), startOfDay(current))) {
+            break; // Done for the last day
+        } else {
+            current = addDays(current, 1);
+            current = setHours(setMinutes(current, 0), 8);
+        }
+    }
+
+    return Math.max(0, totalMinutes);
 };
 
 export const parseWhatsAppCSV = (file) => {
@@ -159,6 +216,7 @@ const extractLeadInfo = (messages) => {
 
 const calculateResponseMetrics = (messages) => {
     let totalResponseTime = 0;
+    let totalBusinessResponseTime = 0;
     let responseCount = 0;
     const responseTimes = [];
 
@@ -175,6 +233,7 @@ const calculateResponseMetrics = (messages) => {
                 // Filter huge gaps (e.g., > 3 days) to avoid skewing data
                 if (diff < 4320) {
                     totalResponseTime += diff;
+                    totalBusinessResponseTime += calculateBusinessMinutes(start, end);
                     responseCount++;
                     responseTimes.push(diff);
                 }
@@ -184,6 +243,7 @@ const calculateResponseMetrics = (messages) => {
 
     return {
         avgResponseTime: responseCount > 0 ? Math.round(totalResponseTime / responseCount) : 0,
+        avgBusinessResponseTime: responseCount > 0 ? Math.round(totalBusinessResponseTime / responseCount) : 0,
         responseTimes,
         totalInteractions: messages.length,
         lastActivity: messages.length > 0 ? messages[messages.length - 1].date : null
@@ -379,6 +439,7 @@ export const getComparisonData = (chats, period = 'month') => {
                 period: key,
                 leads: 0,
                 totalResponseTime: 0,
+                totalBusinessResp: 0,
                 responseCount: 0,
                 fastResponses: 0,
                 ghostingCount: 0
@@ -387,6 +448,14 @@ export const getComparisonData = (chats, period = 'month') => {
 
         groups[key].leads++;
         groups[key].totalResponseTime += chat.avgResponseTime;
+
+        // Backward compatibility: If cached data doesn't have the new metric, calculate it now
+        let busTime = chat.avgBusinessResponseTime;
+        if (busTime === undefined) {
+            const metrics = calculateResponseMetrics(chat.messages);
+            busTime = metrics.avgBusinessResponseTime;
+        }
+        groups[key].totalBusinessResp += (busTime || 0);
         if (chat.avgResponseTime > 0) groups[key].responseCount++;
 
         // Fast responses (< 15 min)
@@ -406,6 +475,7 @@ export const getComparisonData = (chats, period = 'month') => {
             period: g.period,
             leads: g.leads,
             avgResp: g.responseCount > 0 ? Math.round(g.totalResponseTime / g.responseCount) : 0,
+            avgBusinessResp: g.responseCount > 0 ? Math.round(g.totalBusinessResp / g.responseCount) : 0,
             fastRate: g.leads > 0 ? Math.round((g.fastResponses / g.leads) * 100) : 0,
             ghostingRate: g.leads > 0 ? Math.round((g.ghostingCount / g.leads) * 100) : 0
         }));

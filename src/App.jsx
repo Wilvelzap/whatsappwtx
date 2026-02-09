@@ -249,7 +249,8 @@ function App() {
                     <tr>
                       <th>Periodo</th>
                       <th>Leads</th>
-                      <th>Resp. Promedio</th>
+                      <th>Resp. 24h</th>
+                      <th>Resp. Laboral (8-18)</th>
                       <th>% Rápido (&lt;15m)</th>
                       <th>Ghosting</th>
                       <th>Tendencia</th>
@@ -264,6 +265,11 @@ function App() {
                           <td style={{ fontWeight: 600 }}>{row.period}</td>
                           <td>{row.leads}</td>
                           <td>{row.avgResp} min</td>
+                          <td>
+                            <strong style={{ color: row.avgBusinessResp < 60 ? '#10b981' : '#f59e0b' }}>
+                              {row.avgBusinessResp} min
+                            </strong>
+                          </td>
                           <td>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                               <span>{row.fastRate}%</span>
