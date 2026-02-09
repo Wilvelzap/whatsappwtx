@@ -2,7 +2,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import {
   AlertCircle, FileText, Target, Activity, BarChart3, Globe, Zap,
   ChevronRight, Phone, Mail, ExternalLink, ArrowRight, Ghost, Brain, Calendar, Trash2,
-  DollarSign, TrendingDown, Clock3, Sparkles, Key
+  DollarSign, TrendingDown, Clock3, Sparkles, Key,
+  Users, MessageSquare, Clock, TrendingUp, Download, Upload
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip, ResponsiveContainer,
@@ -25,7 +26,7 @@ function App() {
   const [compPeriod, setCompPeriod] = useState('month');
 
   // AI & New Features State
-  const [apiKey, setApiKey] = useState(localStorage.getItem('gemini_api_key') || '');
+  const [apiKey, setApiKey] = useState(import.meta.env.VITE_GEMINI_API_KEY || localStorage.getItem('gemini_api_key') || '');
   const [aiReport, setAiReport] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [ticketValue, setTicketValue] = useState(localStorage.getItem('avg_ticket') || 500);
@@ -531,6 +532,24 @@ function App() {
                   }}
                 />
                 <p style={{ fontSize: '0.8rem', color: '#cbd5e1' }}>Tu clave se guarda localmente en tu navegador.</p>
+
+                <button
+                  className="btn btn-ghost"
+                  style={{ marginTop: '1rem', fontSize: '0.9rem', color: '#64748b' }}
+                  onClick={async () => {
+                    if (!apiKey) return alert("Ingresa una API Key primero");
+                    try {
+                      const { listAvailableModels } = await import('./utils/aiService');
+                      const models = await listAvailableModels(apiKey);
+                      const names = models.map(m => m.name).join('\n');
+                      alert(`Conexión Exitosa!\nModelos disponibles:\n${names}`);
+                    } catch (e) {
+                      alert(`Error de Conexión: ${e.message}\n\nPosible causa: La API 'Generative Language' no está habilitada en tu proyecto de Google Cloud.`);
+                    }
+                  }}
+                >
+                  🛠️ Verificar Acceso a Modelos
+                </button>
               </div>
             ) : (
               <div>
@@ -545,7 +564,8 @@ function App() {
                           const report = await generateAIReport(apiKey, kpis, insights);
                           setAiReport(report);
                         } catch (e) {
-                          alert(e.message);
+                          console.error("AI Strategic Error:", e);
+                          alert(`Error de IA: ${e.message}. El servidor respondió con un error. Revisa la consola para más detalles.`);
                         }
                         setAiLoading(false);
                       }}
@@ -557,7 +577,34 @@ function App() {
                         <><Sparkles size={20} /> Generar Reporte Estratégico</>
                       )}
                     </button>
-                    <p style={{ marginTop: '1rem', color: '#64748b' }}>La IA analizará {kpis.totalLeads} chats y detectará patrones ocultos.</p>
+                    <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                      <button
+                        className="btn btn-ghost"
+                        style={{ fontSize: '0.8rem', color: '#64748b' }}
+                        onClick={async () => {
+                          try {
+                            const { listAvailableModels } = await import('./utils/aiService');
+                            const models = await listAvailableModels(apiKey);
+                            const names = models.map(m => m.name).join('\n');
+                            alert(`Conexión Exitosa!\nModelos disponibles:\n${names}`);
+                          } catch (e) {
+                            alert(`Error de Conexión: ${e.message}`);
+                          }
+                        }}
+                      >
+                        🛠️ Verificar Modelos
+                      </button>
+                      <button
+                        className="btn btn-ghost"
+                        style={{ fontSize: '0.8rem', color: '#64748b' }}
+                        onClick={() => {
+                          setApiKey('');
+                          localStorage.removeItem('gemini_api_key');
+                        }}
+                      >
+                        🔑 Cambiar API Key
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="markdown-body" style={{ padding: '1rem', background: '#f8fafc', borderRadius: '8px', lineHeight: '1.6' }}>
