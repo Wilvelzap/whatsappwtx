@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import * as XLSX from 'xlsx';
 import { parseWhatsAppCSV, getKPIs, getInsights, getComparisonData } from './utils/analytics';
+import { saveLargeData, loadLargeData, clearLargeData } from './utils/storage';
 import { generateAIReport } from './utils/aiService';
 import { format } from 'date-fns';
 
@@ -36,15 +37,28 @@ function App() {
 
   // 1. Persistence Logic: Load on Mount
   useEffect(() => {
-    const savedData = localStorage.getItem('witronixData');
-    if (savedData) {
-      try {
-        const parsed = JSON.parse(savedData);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setData(parsed);
+    const initData = async () => {
+      // Intenta IndexedDB primero (nueva base)
+      let parsed = await loadLargeData('witronixData');
+      
+      // Fallback a localStorage por si venimos de la versión vieja
+      if (!parsed) {
+        const savedData = localStorage.getItem('witronixData');
+        if (savedData) {
+          try {
+            parsed = JSON.parse(savedData);
+            // Migramos la info a IndexedDB silenciosamente
+            await saveLargeData('witronixData', parsed);
+            localStorage.removeItem('witronixData');
+          } catch (e) { console.error('Error loading legacy persistence', e); }
         }
-      } catch (e) { console.error('Error loading persistence', e); }
-    }
+      }
+
+      if (parsed && Array.isArray(parsed) && parsed.length > 0) {
+        setData(parsed);
+      }
+    };
+    initData();
   }, []);
 
   const processedIgnored = useMemo(() =>
@@ -64,13 +78,13 @@ function App() {
       // Merge Strategy: Replace for now to avoid duplicates complexity, user wants "update"
       setData(result);
 
-      // Save to persistence
+      // Save to persistence safely in IndexedDB
       try {
-        localStorage.setItem('witronixData', JSON.stringify(result));
-        setPersistenceMsg('Datos guardados en memoria local.');
+        await saveLargeData('witronixData', result);
+        setPersistenceMsg('Base de datos analizada y guardada sin límites.');
         setTimeout(() => setPersistenceMsg(''), 3000);
       } catch (e) {
-        setPersistenceMsg('Error: Archivo muy grande para memoria local.');
+        setPersistenceMsg('Error: No se pudo guardar el archivo en disco local.');
       }
 
       // Auto-set date range
@@ -89,8 +103,9 @@ function App() {
     setLoading(false);
   };
 
-  const clearData = () => {
+  const clearData = async () => {
     if (window.confirm('¿Borrar todos los datos almacenados?')) {
+      await clearLargeData();
       localStorage.removeItem('witronixData');
       setData([]);
     }
@@ -146,6 +161,11 @@ function App() {
             onClick={() => setActiveTab('productivity')}
             style={{ marginBottom: '0.5rem', justifyContent: 'flex-start', background: activeTab === 'productivity' ? 'rgba(255,255,255,0.1)' : 'transparent' }}>
             <Clock3 size={18} /> Productividad TEAM
+          </button>
+          <button className={`btn btn-ghost w-full ${activeTab === 'sales' ? 'active-nav' : ''}`}
+            onClick={() => setActiveTab('sales')}
+            style={{ marginBottom: '0.5rem', justifyContent: 'flex-start', background: activeTab === 'sales' ? 'rgba(255,255,255,0.1)' : 'transparent' }}>
+            <Target size={18} /> Funnel & Ventas
           </button>
           <button className={`btn btn-ghost w-full ${activeTab === 'leads' ? 'active-nav' : ''}`}
             onClick={() => setActiveTab('leads')}
@@ -207,21 +227,21 @@ function App() {
             <div className="card" style={{ marginBottom: '2rem' }}>
               <h3 className="brand-font" style={{ marginBottom: '1.5rem', fontSize: '1.1rem', color: '#475569' }}>Matriz de Indicadores (Filtrada)</h3>
               <div className="matrix-grid">
-                <MatrixItem label="Consultas Noche" value={kpis.nightQueries} sub="8PM - 7AM" highlight={kpis.nightQueries > 0} />
-                <MatrixItem label="Msgs por Chat" value={kpis.avgMsgsPerChat} sub="Promedio" />
-                <MatrixItem label="Sin Respuesta" value={Math.round(kpis.totalLeads * 0.12)} sub="Estimado" />
-                <MatrixItem label="Piden Catálogo" value={kpis.catalogRequests} sub="Intención" />
-                <MatrixItem label="Piden Precio" value={kpis.quoteRequests} sub="Cierre" />
-                <MatrixItem label="Piden Ubicación" value={kpis.locationRequests} sub="Visita" />
-                <MatrixItem label="High Ticket" value={kpis.highValueCount} sub="IA Detectado" />
-                <MatrixItem label="Emails" value={kpis.emailsCaptured} sub="CRM" />
-                <MatrixItem label="Gratitud" value="12%" sub="Sentiment" />
-                <MatrixItem label="Impaciencia" value={kpis.impatience} sub="Doble Msgs" />
-                <MatrixItem label="NITs" value={kpis.nits} sub="Facturación" />
-                <MatrixItem label="Maps Clicks" value={Math.round(kpis.totalLeads * 0.15)} sub="GPS" />
-                <MatrixItem label="Local (LP)" value={Math.round(kpis.totalLeads * 0.7)} sub="Estimado" />
-                <MatrixItem label="Conversión" value={Math.round((kpis.leadsCaptured / kpis.totalLeads) * 100) + '%'} sub="Lead Rate" />
-                <MatrixItem label="Bot Usage" value="0.4%" sub="Auto" />
+                <MatrixItem label="Consultas Noche" value={kpis.nightQueries} sub="8PM - 7AM" desc="Textos recibidos fuera del horario comercial, útiles para autorespuestas." highlight={kpis.nightQueries > 0} />
+                <MatrixItem label="Msgs por Chat" value={kpis.avgMsgsPerChat} sub="Promedio" desc="Nivel de desgaste e interacción promedio." />
+                <MatrixItem label="Inicio Consultivo" value={(kpis.consultativeFirstRate || 0) + '%'} sub="Estrategia" desc="Asesores que abren el chat con preguntas abiertas." />
+                <MatrixItem label="Piden Catálogo" value={kpis.catalogRequests} sub="Intención" desc="Solicitan ver toda la línea de productos disponibles." />
+                <MatrixItem label="Demandan Precio" value={kpis.quoteRequests} sub="Negociación" desc="Clientes preguntan explícitamente costos." />
+                <MatrixItem label="Precio Enviado" value={kpis.pricesGiven || 0} sub="Atención" desc="Chat donde el vendedor lanza números ('Bs', '$')." />
+                <MatrixItem label="Cotizaciones PDF" value={kpis.quotesSent || 0} sub="Avanzado" desc="Documentos enviados para proyectos corporativos." />
+                <MatrixItem label="High Ticket" value={kpis.highValueCount} sub="IA Detectado" desc="Algoritmo predictivo que detecta proyectos mayores." />
+                <MatrixItem label="Impaciencia" value={kpis.impatience} sub="Doble Msgs" desc="Clientes que envían mensajes seguidos esperando." />
+                <MatrixItem label="Seguimiento (Follow-Up)" value={kpis.followUps || 0} sub="Retención" desc="Casos donde se intenta recontar al plomo dormido." />
+                <MatrixItem label="Datos Fácticos (NIT)" value={kpis.nits} sub="Facturación" desc="Empresas o clientes formales con clara intención." />
+                <MatrixItem label="Cierres e Intención (QR)" value={kpis.qrsSent || 0} sub="Venta" desc="Chats en proceso final de pago o transferencia." />
+                <MatrixItem label="Recopilación Email" value={kpis.emailsCaptured} sub="CRM" desc="Correos obtenidos para automatizaciones." />
+                <MatrixItem label="Locales y Mapas" value={kpis.locationRequests} sub="Visita Físca" desc="Intención de ver los productos presencialmente." />
+                <MatrixItem label="Aperturas Fallidas" value={Math.round(kpis.totalLeads * 0.12)} sub="Estimado" desc="Leads que escribieron y no hubo consolidación clara." />
               </div>
             </div>
 
@@ -249,6 +269,9 @@ function App() {
                     <tr>
                       <th>Periodo</th>
                       <th>Leads</th>
+                      <th>Enganche</th>
+                      <th>Cotizado</th>
+                      <th>Cierre(QR)</th>
                       <th>Resp. 24h</th>
                       <th>Resp. Laboral (8-18)</th>
                       <th>% Rápido (&lt;15m)</th>
@@ -264,6 +287,9 @@ function App() {
                         <tr key={i}>
                           <td style={{ fontWeight: 600 }}>{row.period}</td>
                           <td>{row.leads}</td>
+                          <td>{row.engancheRate}%</td>
+                          <td>{row.quoteRate}%</td>
+                          <td>{row.qrRate}%</td>
                           <td>{row.avgResp} min</td>
                           <td>
                             <strong style={{ color: row.avgBusinessResp < 60 ? '#10b981' : '#f59e0b' }}>
@@ -509,6 +535,84 @@ function App() {
           </div>
         )}
 
+        {activeTab === 'sales' && (
+          <div className="fade-in">
+            <div className="stats-banner">
+              <StatCard label="Tasa de Enganche" value={`${comparisonData[comparisonData.length-1]?.engancheRate || 0}%`} detail="Interacción fluida" color="#3b82f6" icon={<MessageSquare size={16} />} />
+              <StatCard label="Precios Dados" value={`${comparisonData[comparisonData.length-1]?.priceRate || 0}%`} detail="Leads con pre-cotización" color="#f59e0b" icon={<DollarSign size={16} />} />
+              <StatCard label="Seguimiento (Follow-Up)" value={`${comparisonData[comparisonData.length-1]?.followUpRate || 0}%`} detail="Intentos de retención" color="#8b5cf6" icon={<Activity size={16} />} />
+              <StatCard label="Intención Cierre (QR)" value={`${comparisonData[comparisonData.length-1]?.qrRate || 0}%`} detail="Pasos finales" color="#10b981" icon={<Target size={16} />} />
+            </div>
+
+            <div className="chart-row">
+              <div className="card">
+                <h3>Demanda de Productos</h3>
+                <table className="resp-table" style={{ marginTop: '1rem' }}>
+                  <thead>
+                    <tr>
+                      <th>Producto Analizado</th>
+                      <th>Consultas</th>
+                      <th>Demanda (%)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {kpis.topProducts && kpis.topProducts.map((p, i) => {
+                      const totalProds = kpis.topProducts.reduce((acc, curr) => acc + curr.count, 0) || 1;
+                      const pct = Math.round((p.count / totalProds) * 100);
+                      return (
+                        <tr key={i}>
+                          <td style={{ fontWeight: 600 }}>{p.term}</td>
+                          <td>{p.count}</td>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{width:'35px'}}>{pct}%</span>
+                              <div style={{ flex: 1, height: '6px', background: '#e2e8f0', borderRadius: '3px' }}>
+                                <div style={{ width: `${pct}%`, height: '100%', background: '#3b82f6', borderRadius: '3px' }} />
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {(!kpis.topProducts || kpis.topProducts.length === 0) && (
+                      <tr><td colSpan="3" style={{textAlign:'center', color:'#94a3b8'}}>No se detectaron productos base (Paneles, Triproof, etc).</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
+                <h3>Profundidad de Conversación (Msgs/Chat)</h3>
+                <ResponsiveContainer width="100%" height={250} style={{ marginTop: '1rem' }}>
+                  <BarChart data={kpis.depthDistribution ? Object.keys(kpis.depthDistribution).map(k => ({ label: k, total: kpis.depthDistribution[k] })) : []}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="label" stroke="#94a3b8" fontSize={10} />
+                    <YAxis stroke="#94a3b8" fontSize={10} />
+                    <ReTooltip cursor={{ fill: '#f1f5f9' }} />
+                    <Bar dataKey="total" fill="#f43f5e" radius={[4, 4, 0, 0]} name="Chats" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="card">
+              <h3>Estilo del Primer Mensaje (Agentes)</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginTop: '1.5rem' }}>
+                {kpis.replyStyles && Object.keys(kpis.replyStyles).map((style, i) => {
+                  const pct = Math.round((kpis.replyStyles[style] / kpis.totalLeads) * 100) || 0;
+                  return (
+                    <div key={i} style={{ padding: '1.5rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+                      <p style={{ fontSize: '1rem', fontWeight: 700, color: '#1e293b', marginBottom: '8px' }}>{style}</p>
+                      <p style={{ fontSize: '2rem', fontWeight: 800, color: '#3b82f6' }}>{pct}%</p>
+                      <p style={{ fontSize: '0.8rem', color: '#64748b' }}>{kpis.replyStyles[style]} chats</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'ai_strategy' && (
           <div className="fade-in card" style={{ border: '1px solid #3b82f6' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
@@ -640,11 +744,12 @@ const StatCard = ({ label, value, detail, color, icon }) => (
   </div>
 );
 
-const MatrixItem = ({ label, value, sub, highlight }) => (
-  <div className="card matrix-card" style={{ border: highlight ? '1px solid #f59e0b' : '1px solid #e2e8f0' }}>
+const MatrixItem = ({ label, value, sub, desc, highlight }) => (
+  <div className="card matrix-card" style={{ border: highlight ? '1px solid #f59e0b' : '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', height: '100%' }}>
     <span className="m-label" style={{ color: highlight ? '#d97706' : '#64748b' }}>{label}</span>
     <span className="m-value">{value}</span>
-    <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{sub}</span>
+    <span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 600, marginTop: '0.2rem', textTransform: 'uppercase' }}>{sub}</span>
+    {desc && <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.6rem', lineHeight: '1.3' }}>{desc}</p>}
   </div>
 );
 

@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Análisis Marzo-Abril 2026 — Witronix LED</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,700;9..144,900&display=swap');
+
+:root {
+  --bg: #faf9f7;
+  --card: #ffffff;
+  --border: #e8e4df;
+  --accent: #c05e1a;
+  --accent-light: #fff4ed;
+  --blue: #1a5fc0;
+  --blue-light: #edf4ff;
+  --green: #16794a;
+  --green-light: #ecfdf3;
+  --red: #c01a1a;
+  --red-light: #fef2f2;
+  --text: #1a1a1a;
+  --muted: #6b6560;
+  --dim: #9c9590;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; line-height: 1.65; }
+
+.header {
+  padding: 52px 48px 40px;
+  background: linear-gradient(160deg, #1a1410 0%, #2a1e14 40%, #3d2a18 100%);
+  color: white;
+}
+.header-badge {
+  display: inline-block;
+  padding: 4px 14px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 20px;
+  font-size: 0.78rem;
+  color: rgba(255,255,255,0.7);
+  margin-bottom: 16px;
+  letter-spacing: 0.5px;
+}
+.header h1 {
+  font-family: 'Fraunces', serif;
+  font-size: 2.6rem;
+  font-weight: 900;
+  line-height: 1.15;
+  background: linear-gradient(135deg, #f5a623, #f7c873);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.header p { color: rgba(255,255,255,0.6); margin-top: 10px; font-size: 0.92rem; }
+
+.container { max-width: 1200px; margin: 0 auto; padding: 36px 48px 60px; }
+
+.section-title {
+  font-family: 'Fraunces', serif;
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin: 44px 0 18px;
+  color: var(--text);
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--border);
+}
+
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+  margin-bottom: 28px;
+}
+.kpi {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px 16px;
+}
+.kpi .label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; }
+.kpi .val { font-size: 1.9rem; font-weight: 700; margin-top: 2px; }
+.kpi .sub { font-size: 0.78rem; color: var(--dim); margin-top: 2px; }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 24px;
+  margin-bottom: 18px;
+}
+.card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 14px; }
+
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; }
+@media (max-width: 800px) { .two-col, .three-col { grid-template-columns: 1fr; } }
+
+table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+th {
+  text-align: left; padding: 9px 10px;
+  background: #f5f3f0;
+  color: var(--muted);
+  font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+td { padding: 9px 10px; border-bottom: 1px solid #f0eeea; }
+tr:hover td { background: #faf8f5; }
+
+.bar-wrap { height: 7px; background: #f0eeea; border-radius: 4px; overflow: hidden; }
+.bar { height: 100%; border-radius: 4px; }
+.bar.orange { background: var(--accent); }
+.bar.blue { background: var(--blue); }
+.bar.green { background: var(--green); }
+.bar.red { background: var(--red); }
+
+.tag {
+  display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 600;
+}
+.tag.good { background: var(--green-light); color: var(--green); }
+.tag.bad { background: var(--red-light); color: var(--red); }
+.tag.warn { background: var(--accent-light); color: var(--accent); }
+.tag.info { background: var(--blue-light); color: var(--blue); }
+
+.callout {
+  padding: 18px 22px;
+  border-radius: 8px;
+  margin: 16px 0;
+  font-size: 0.88rem;
+  line-height: 1.7;
+  border-left: 4px solid;
+}
+.callout.critical { background: var(--red-light); border-color: var(--red); }
+.callout.positive { background: var(--green-light); border-color: var(--green); }
+.callout.info { background: var(--blue-light); border-color: var(--blue); }
+.callout.warn { background: var(--accent-light); border-color: var(--accent); }
+.callout strong { font-weight: 700; }
+
+.vs-box {
+  display: grid; grid-template-columns: 1fr auto 1fr; gap: 0; align-items: stretch;
+}
+.vs-side { padding: 20px; border-radius: 10px; }
+.vs-side.mar { background: var(--blue-light); border: 1px solid #c8daef; }
+.vs-side.apr { background: var(--accent-light); border: 1px solid #ebd5c4; }
+.vs-divider {
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 16px; font-weight: 700; color: var(--dim); font-size: 0.85rem;
+}
+.vs-side h4 { font-size: 0.95rem; margin-bottom: 12px; font-weight: 700; }
+.vs-stat { margin: 6px 0; font-size: 0.85rem; }
+.vs-stat .n { font-weight: 700; font-size: 1.1rem; }
+
+.rec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 800px) { .rec-grid { grid-template-columns: 1fr; } }
+.rec-item {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px;
+}
+.rec-item .num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--accent); color: white;
+  font-size: 0.75rem; font-weight: 700; margin-bottom: 8px;
+}
+.rec-item h4 { font-size: 0.9rem; margin-bottom: 6px; }
+.rec-item p { font-size: 0.82rem; color: var(--muted); line-height: 1.6; }
+
+.funnel-row {
+  display: flex; align-items: center; gap: 8px; margin: 6px 0;
+}
+.funnel-label { width: 110px; font-size: 0.8rem; color: var(--muted); text-align: right; }
+.funnel-bar-wrap { flex: 1; height: 28px; background: #f0eeea; border-radius: 6px; overflow: hidden; position: relative; }
+.funnel-bar { height: 100%; border-radius: 6px; display: flex; align-items: center; padding-left: 10px; font-size: 0.75rem; font-weight: 600; color: white; min-width: 40px; }
+.funnel-val { font-size: 0.8rem; font-weight: 600; width: 50px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-badge">MARZO — ABRIL 2026</div>
+  <h1>💡 Análisis del Equipo Nuevo<br>Witronix LED</h1>
+  <p>1,696 conversaciones activas · 14,180 mensajes · 1,563 leads nuevos · Periodo del nuevo personal</p>
+</div>
+
+<div class="container">
+
+<!-- KPIs GLOBALES -->
+<div class="kpi-row">
+  <div class="kpi">
+    <div class="label">Leads Nuevos</div>
+    <div class="val">1,563</div>
+    <div class="sub">1,275 Mar + 288 Abr</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Tasa Respuesta</div>
+    <div class="val" style="color:var(--green)">99%</div>
+    <div class="sub">Solo 7 sin respuesta</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Mediana Respuesta</div>
+    <div class="val">~9 min</div>
+    <div class="sub">Promedio 2h (sesgado por nocturnos)</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Enganche</div>
+    <div class="val">54%</div>
+    <div class="sub">Cliente responde al vendedor</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Cotización Formal</div>
+    <div class="val" style="color:var(--red)">19%</div>
+    <div class="sub">Bajó vs meses anteriores</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Cierre (QR/Pago)</div>
+    <div class="val" style="color:var(--red)">1%</div>
+    <div class="sub">Solo 18 en 2 meses</div>
+  </div>
+</div>
+
+<!-- MARZO vs ABRIL -->
+<h2 class="section-title">📊 Marzo vs Abril — Comparativa Directa</h2>
+
+<div class="vs-box">
+  <div class="vs-side mar">
+    <h4 style="color:var(--blue)">🔵 Marzo 2026</h4>
+    <div class="vs-stat"><span class="n">1,275</span> leads nuevos</div>
+    <div class="vs-stat"><span class="n">1,393</span> convos activas</div>
+    <div class="vs-stat">Respuesta <5min: <span class="n">35%</span></div>
+    <div class="vs-stat">Enganche: <span class="n">56%</span></div>
+    <div class="vs-stat">Cotización: <span class="n">18%</span></div>
+    <div class="vs-stat">Precio dado: <span class="n">33%</span> <span class="tag good">mejor</span></div>
+    <div class="vs-stat">Seguimiento: <span class="n">55%</span> <span class="tag good">excelente</span></div>
+    <div class="vs-stat">1er msj consultivo: <span class="n">15%</span></div>
+  </div>
+  <div class="vs-divider">VS</div>
+  <div class="vs-side apr">
+    <h4 style="color:var(--accent)">🟠 Abril 2026 (10 días)</h4>
+    <div class="vs-stat"><span class="n">288</span> leads nuevos</div>
+    <div class="vs-stat"><span class="n">585</span> convos activas</div>
+    <div class="vs-stat">Respuesta <5min: <span class="n">37%</span></div>
+    <div class="vs-stat">Enganche: <span class="n">45%</span> <span class="tag bad">bajó</span></div>
+    <div class="vs-stat">Cotización: <span class="n">19%</span></div>
+    <div class="vs-stat">Precio dado: <span class="n">17%</span> <span class="tag bad">bajó</span></div>
+    <div class="vs-stat">Seguimiento: <span class="n">19%</span> <span class="tag bad">bajó</span></div>
+    <div class="vs-stat">1er msj consultivo: <span class="n">43%</span> <span class="tag good">mejor</span></div>
+  </div>
+</div>
+
+<div class="callout warn" style="margin-top:18px">
+  <strong>⚠️ Abril muestra señales mixtas:</strong> El estilo de primer mensaje mejoró (43% consultivo vs 15%), pero el enganche bajó de 56% a 45%, el seguimiento cayó de 55% a 19%, y se da precio en la mitad de los casos que en Marzo. La pregunta es: ¿el equipo de Abril es diferente al de Marzo?
+</div>
+
+<!-- EMBUDO VISUAL -->
+<h2 class="section-title">🔻 Embudo de Conversión</h2>
+
+<div class="two-col">
+  <div class="card">
+    <h3 style="color:var(--blue)">Marzo (1,275 leads)</h3>
+    <div class="funnel-row">
+      <div class="funnel-label">Respondidos</div>
+      <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:98%;background:var(--blue)">98%</div></div>
+      <div class="funnel-val">1,254</div>
+    </div>
+    <div class="funnel-row">
+      <div class="funnel-label">Enganche</div>
+      <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:56%;background:var(--blue)">56%</div></div>
+      <div class="funnel-val">714</div>
+    </div>
+    <div class="funnel-row">
+      <div class="funnel-label">Precio dado</div>
+      <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:33%;background:var(--blue)">33%</div></div>
+      <div class="funnel-val">424</div>
+    </div>
+    <div class="funnel-row">
+      <div class="funnel-label">Cotización</div>
+      <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:18%;background:#6b9ad4">18%</div></div>
+      <div class="funnel-val">235</div>
+    </div>
+    <div class="funnel-row">
+      <div class="funnel-label">Seguimiento</div>
+      <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:55%;background:var(--green)">55%</div></div>
+      <div class="funnel-val">701</div>
+    </div>
+    <div class="funnel-row">
+      <div class="funnel-label">QR / Pago</div>
+      <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:2%;background:var(--red)">1%</div></div>
+      <div class="funnel-val" style="color:var(--red)">14</div>
+    </div>
+  </div>
+  <div class="card">
+    <h3 style="color:var(--accent)">Abril (288 leads)</h3>
+    <div class="funnel-row">
+      <div class="funnel-label">Respondidos</div>
+      <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:99%;background:var(--accent)">99%</div></div>
+      <div class="funnel-val">286</div>
+    </div>
+    <div class="funnel-row">
+      <div class="funnel-label">Enganche</div>
+      <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:45%;background:var(--accent)">45%</div></div>
+      <div class="funnel-val">131</div>
+    </div>
+    <div class="funnel-row">
+      <div class="funnel-label">Precio dado</div>
+      <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:17%;background:var(--accent)">17%</div></div>
+      <div class="funnel-val">48</div>
+    </div>
+    <div class="funnel-row">
+      <div class="funnel-label">Cotización</div>
+      <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:19%;background:#d4956b">19%</div></div>
+      <div class="funnel-val">54</div>
+    </div>
+    <div class="funnel-row">
+      <div class="funnel-label">Seguimiento</div>
+      <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:19%;background:#9cba7e">19%</div></div>
+      <div class="funnel-val">56</div>
+    </div>
+    <div class="funnel-row">
+      <div class="funnel-label">QR / Pago</div>
+      <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:2%;background:var(--red)">1%</div></div>
+      <div class="funnel-val" style="color:var(--red)">4</div>
+    </div>
+  </div>
+</div>
+
+<div class="callout critical">
+  <strong>🚨 La fuga más grande:</strong> De los 845 leads enganchados entre ambos meses, solo 18 llegaron a etapa de pago. <strong>Se pierden 827 oportunidades entre el interés y el cierre</strong>. Falta un paso intermedio que lleve al cliente de "me interesa" a "procedo con el pago".
+</div>
+
+<!-- PRECIO PEDIDO vs DADO -->
+<h2 class="section-title">💰 Análisis de Precios: La Fuga Silenciosa</h2>
+
+<div class="two-col">
+  <div class="card">
+    <h3>Marzo</h3>
+    <table>
+      <tr><td>Clientes que pidieron precio</td><td style="font-weight:700">421</td></tr>
+      <tr><td>Recibieron un precio en Bs</td><td style="font-weight:700;color:var(--green)">305 (72%)</td></tr>
+      <tr><td style="color:var(--red)">Pidieron y NUNCA recibieron</td><td style="font-weight:700;color:var(--red)">116 (28%)</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h3>Abril</h3>
+    <table>
+      <tr><td>Clientes que pidieron precio</td><td style="font-weight:700">133</td></tr>
+      <tr><td>Recibieron un precio en Bs</td><td style="font-weight:700;color:var(--green)">54 (41%)</td></tr>
+      <tr><td style="color:var(--red)">Pidieron y NUNCA recibieron</td><td style="font-weight:700;color:var(--red)">79 (59%)</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="callout critical">
+  <strong>🚨 ALERTA ABRIL:</strong> El 59% de los clientes que preguntan por precio en Abril no lo reciben. Esto empeoró dramáticamente vs Marzo (28%). El equipo de Abril pregunta bien la necesidad pero luego no cierra con un número concreto. Cada cliente sin precio es una venta que se enfría.
+</div>
+
+<!-- TIEMPOS DE RESPUESTA -->
+<h2 class="section-title">⏱ Tiempos de Respuesta</h2>
+
+<div class="card">
+  <table>
+    <tr>
+      <th>Métrica</th>
+      <th>Marzo</th>
+      <th>Abril</th>
+      <th>Meta ideal</th>
+    </tr>
+    <tr>
+      <td>Mediana</td>
+      <td><strong>9 min</strong></td>
+      <td><strong>8 min</strong></td>
+      <td><span class="tag good">< 5 min</span></td>
+    </tr>
+    <tr>
+      <td>Promedio</td>
+      <td>118 min</td>
+      <td>121 min</td>
+      <td><span class="tag info">< 30 min</span></td>
+    </tr>
+    <tr>
+      <td>Respuesta < 5 min</td>
+      <td>35%</td>
+      <td>37%</td>
+      <td><span class="tag warn">> 70%</span></td>
+    </tr>
+    <tr>
+      <td>Respuesta < 15 min</td>
+      <td>61%</td>
+      <td>65%</td>
+      <td><span class="tag warn">> 85%</span></td>
+    </tr>
+    <tr>
+      <td>Respuesta < 30 min</td>
+      <td>71%</td>
+      <td>75%</td>
+      <td><span class="tag warn">> 90%</span></td>
+    </tr>
+    <tr>
+      <td style="color:var(--red)">Respuesta > 2 horas</td>
+      <td style="color:var(--red)"><strong>17%</strong></td>
+      <td style="color:var(--red)"><strong>14%</strong></td>
+      <td><span class="tag bad">< 5%</span></td>
+    </tr>
+  </table>
+</div>
+
+<div class="callout info">
+  <strong>📊 La mediana es buena (8-9 min), pero el promedio es altísimo (2h).</strong> Esto significa que la mayoría de respuestas son rápidas, pero hay un grupo significativo (14-17%) que tarda más de 2 horas. Estos son probablemente mensajes nocturnos o de fin de semana que se acumulan. Un bot automático fuera de horario eliminaría este sesgo.
+</div>
+
+<!-- PRODUCTOS -->
+<h2 class="section-title">📦 Demanda por Producto</h2>
+
+<div class="two-col">
+  <div class="card">
+    <h3 style="color:var(--blue)">Marzo</h3>
+    <table>
+      <tr><th>Producto</th><th>Consultas</th><th></th></tr>
+      <tr><td><strong>Paneles LED</strong></td><td>627</td><td><div class="bar-wrap"><div class="bar blue" style="width:100%"></div></div></td></tr>
+      <tr><td><strong>Triproof</strong></td><td>267</td><td><div class="bar-wrap"><div class="bar blue" style="width:43%"></div></div></td></tr>
+      <tr><td>Focos</td><td>28</td><td><div class="bar-wrap"><div class="bar blue" style="width:4%"></div></div></td></tr>
+      <tr><td>Campanas UFO</td><td>22</td><td><div class="bar-wrap"><div class="bar blue" style="width:4%"></div></div></td></tr>
+      <tr><td>Tubos</td><td>14</td><td><div class="bar-wrap"><div class="bar blue" style="width:2%"></div></div></td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h3 style="color:var(--accent)">Abril</h3>
+    <table>
+      <tr><th>Producto</th><th>Consultas</th><th></th></tr>
+      <tr><td><strong>Triproof</strong> <span class="tag warn">🔺 #1</span></td><td>197</td><td><div class="bar-wrap"><div class="bar orange" style="width:100%"></div></div></td></tr>
+      <tr><td><strong>Paneles LED</strong></td><td>96</td><td><div class="bar-wrap"><div class="bar orange" style="width:49%"></div></div></td></tr>
+      <tr><td>Campanas UFO <span class="tag warn">🔺 sube</span></td><td>33</td><td><div class="bar-wrap"><div class="bar orange" style="width:17%"></div></div></td></tr>
+      <tr><td>Focos</td><td>11</td><td><div class="bar-wrap"><div class="bar orange" style="width:6%"></div></div></td></tr>
+      <tr><td>Spots</td><td>5</td><td><div class="bar-wrap"><div class="bar orange" style="width:3%"></div></div></td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="callout info">
+  <strong>💡 Cambio interesante en Abril:</strong> Triproof superó a Paneles como producto #1, y Campanas UFO subió al 3er lugar. Esto puede indicar un cambio en la campaña publicitaria o en la estacionalidad. Asegurar que el equipo tenga fichas y precios de Triproof listos es prioridad.
+</div>
+
+<!-- ESTILO DE PRIMERA RESPUESTA -->
+<h2 class="section-title">💬 Evolución del Estilo de Atención</h2>
+
+<div class="card">
+  <h3>Primera respuesta al lead</h3>
+  <table>
+    <tr><th>Estilo</th><th>Marzo</th><th>Abril</th><th>Evolución</th></tr>
+    <tr>
+      <td><strong>Pregunta necesidad</strong> <br><span style="font-size:0.75rem;color:var(--dim)">"¿Qué tipo de espacio desea iluminar?"</span></td>
+      <td>15%</td>
+      <td>43%</td>
+      <td><span class="tag good">🔺 +28pts — Excelente</span></td>
+    </tr>
+    <tr>
+      <td><strong>Saludo de marca</strong><br><span style="font-size:0.75rem;color:var(--dim)">"Gracias por escribir a Witronix LED💡"</span></td>
+      <td>57%</td>
+      <td>14%</td>
+      <td><span class="tag info">🔻 Reemplazado por consultivo</span></td>
+    </tr>
+    <tr>
+      <td><strong>Envía cotización directa</strong></td>
+      <td>1%</td>
+      <td>7%</td>
+      <td><span class="tag good">🔺 Mejora</span></td>
+    </tr>
+    <tr>
+      <td><strong>Pide datos (NIT/CI)</strong></td>
+      <td>1%</td>
+      <td>0%</td>
+      <td><span class="tag good">✅ Eliminado</span></td>
+    </tr>
+  </table>
+</div>
+
+<div class="callout positive">
+  <strong>✅ El estilo "pide datos primero" fue eliminado.</strong> En Abril ya no se usa. El equipo evolucionó de un saludo genérico de marca (57% en Marzo) a una pregunta consultiva enfocada en la necesidad (43% en Abril). Este es el camino correcto.
+</div>
+
+<!-- SEGUIMIENTO -->
+<h2 class="section-title">🔄 Seguimiento a Leads</h2>
+
+<div class="two-col">
+  <div class="card" style="border-color: var(--green)">
+    <h3 style="color:var(--green)">Marzo — Seguimiento fuerte</h3>
+    <div style="font-size:2.2rem;font-weight:700;color:var(--green)">55%</div>
+    <p style="font-size:0.85rem;color:var(--muted);margin-top:4px">701 de 1,275 leads recibieron seguimiento activo. Mensajes tipo "Hola, hace unos días nos consultó... ¿aún está interesado?"</p>
+  </div>
+  <div class="card" style="border-color: var(--red)">
+    <h3 style="color:var(--red)">Abril — Caída preocupante</h3>
+    <div style="font-size:2.2rem;font-weight:700;color:var(--red)">19%</div>
+    <p style="font-size:0.85rem;color:var(--muted);margin-top:4px">Solo 56 de 288 leads recibieron seguimiento. Caída del 65% respecto a Marzo. ¿Sobrecarga? ¿Falta de disciplina?</p>
+  </div>
+</div>
+
+<!-- TÉCNICAS DE VENTA -->
+<h2 class="section-title">🛠 Técnicas de Venta Utilizadas</h2>
+
+<div class="card">
+  <table>
+    <tr><th>Técnica</th><th>Marzo</th><th>Abril</th><th>Evaluación</th></tr>
+    <tr>
+      <td>Envío/entrega mencionada</td><td>699</td><td>241</td><td><span class="tag good">Bien, genera confianza</span></td>
+    </tr>
+    <tr>
+      <td>Cotización enviada</td><td>462</td><td>164</td><td><span class="tag info">Proporcional al volumen</span></td>
+    </tr>
+    <tr>
+      <td>Factura mencionada</td><td>248</td><td>90</td><td><span class="tag good">Da formalidad</span></td>
+    </tr>
+    <tr>
+      <td>Garantía mencionada</td><td>217</td><td>74</td><td><span class="tag good">Diferenciador clave</span></td>
+    </tr>
+    <tr>
+      <td>Asesoría técnica / simulación</td><td>45</td><td>14</td><td><span class="tag good">Valor agregado alto</span></td>
+    </tr>
+    <tr>
+      <td>Disponibilidad / stock</td><td>68</td><td>24</td><td><span class="tag warn">Usar más para urgencia</span></td>
+    </tr>
+    <tr>
+      <td>Descuento ofrecido</td><td>20</td><td>5</td><td><span class="tag warn">Muy bajo, usar estratégicamente</span></td>
+    </tr>
+    <tr>
+      <td style="color:var(--red)">QR de pago enviado</td><td style="color:var(--red)"><strong>3</strong></td><td style="color:var(--red)"><strong>3</strong></td><td><span class="tag bad">CRÍTICO — Sin cierre</span></td>
+    </tr>
+  </table>
+</div>
+
+<div class="callout critical">
+  <strong>🚨 Solo 6 QRs de pago en 2 meses con 1,563 leads.</strong> El equipo habla de envíos, facturación y garantía (excelente para generar confianza), pero casi nunca da el paso final: "¿Procedemos? Le envío el QR". La venta muere en la penúltima etapa.
+</div>
+
+<!-- PROFUNDIDAD -->
+<h2 class="section-title">📏 Profundidad de Conversaciones</h2>
+
+<div class="two-col">
+  <div class="card">
+    <h3>Marzo</h3>
+    <table>
+      <tr><td>1-2 mensajes (abandonadas)</td><td>171 (12%)</td><td><span class="tag warn">Lead frío</span></td></tr>
+      <tr><td>3-5 mensajes</td><td>562 (40%)</td><td><span class="tag info">Interés medio</span></td></tr>
+      <tr><td>6-10 mensajes</td><td>362 (26%)</td><td><span class="tag good">Conversación real</span></td></tr>
+      <tr><td>11+ mensajes</td><td>298 (21%)</td><td><span class="tag good">Alta intención</span></td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h3>Abril</h3>
+    <table>
+      <tr><td>1-2 mensajes (abandonadas)</td><td>213 (36%)</td><td><span class="tag bad">🔺 Alarmante</span></td></tr>
+      <tr><td>3-5 mensajes</td><td>211 (36%)</td><td></td></tr>
+      <tr><td>6-10 mensajes</td><td>86 (15%)</td><td><span class="tag bad">🔻 Bajó</span></td></tr>
+      <tr><td>11+ mensajes</td><td>75 (13%)</td><td><span class="tag bad">🔻 Bajó</span></td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="callout critical">
+  <strong>⚠️ En Abril, 36% de conversaciones mueren en 1-2 mensajes</strong> (vs 12% en Marzo). Más de un tercio de los leads se pierden casi inmediatamente. Combinado con la caída de seguimiento (55%→19%), esto sugiere que el equipo de Abril no está reteniendo la conversación.
+</div>
+
+<!-- HORARIOS -->
+<h2 class="section-title">🕐 Distribución Horaria (Mensajes Recibidos)</h2>
+
+<div class="card">
+  <h3>Picos de demanda — ¿Dónde hay vacío de atención?</h3>
+  <table>
+    <tr><th>Hora</th><th>Marzo</th><th>Abril</th><th>Observación</th></tr>
+    <tr><td>08:00-09:00</td><td>780</td><td>186</td><td><span class="tag good">Bien atendido</span></td></tr>
+    <tr><td>09:00-12:00</td><td>1,391</td><td>396</td><td><span class="tag good">Pico principal — prioridad</span></td></tr>
+    <tr><td>12:00-13:00</td><td>710</td><td>259</td><td><span class="tag warn">Hora almuerzo, baja la respuesta</span></td></tr>
+    <tr><td>14:00-17:00</td><td>1,714</td><td>420</td><td><span class="tag good">Segundo pico fuerte</span></td></tr>
+    <tr><td>18:00-19:00</td><td>663</td><td>160</td><td><span class="tag warn">Cierre de horario, respuesta irregular</span></td></tr>
+    <tr><td style="color:var(--red)">20:00-22:00</td><td style="color:var(--red)">383</td><td style="color:var(--red)">84</td><td><span class="tag bad">Sin atención, leads se enfrían</span></td></tr>
+  </table>
+</div>
+
+<!-- CLIENTES RECURRENTES -->
+<h2 class="section-title">🔁 Clientes Recurrentes</h2>
+
+<div class="callout info">
+  <strong>133 clientes que contactaron antes de Marzo volvieron a escribir.</strong> Esto es positivo — son leads calientes que ya conocen la marca. Sin embargo, el hecho de que vuelvan a preguntar puede significar que no se les cerró la venta antes. Priorizar estos leads con atención inmediata y descuentos por lealtad.
+</div>
+
+<!-- RECOMENDACIONES -->
+<h2 class="section-title">🎯 Recomendaciones Específicas Mar-Abr</h2>
+
+<div class="rec-grid">
+  <div class="rec-item">
+    <div class="num">1</div>
+    <h4>Resolver la fuga de precios en Abril</h4>
+    <p>59% de clientes que piden precio no lo reciben. Crear una hoja de precios rápida por producto que el vendedor copie y pegue. Paneles, Triproof y Campanas deben tener precio listo en 30 segundos.</p>
+  </div>
+  <div class="rec-item">
+    <div class="num">2</div>
+    <h4>Recuperar el seguimiento de Marzo</h4>
+    <p>Cayó de 55% a 19%. Implementar una regla: todo lead sin respuesta a las 24h recibe un seguimiento obligatorio. Usar alarmas en el CRM o recordatorios en el celular.</p>
+  </div>
+  <div class="rec-item">
+    <div class="num">3</div>
+    <h4>Agregar paso de cierre obligatorio</h4>
+    <p>Solo 6 QRs en 2 meses. Después de dar precio y que el cliente muestre interés, el siguiente mensaje debe ser: "¿Procedemos? Le envío el QR para que concrete 🤝". Sin este paso, no hay venta.</p>
+  </div>
+  <div class="rec-item">
+    <div class="num">4</div>
+    <h4>Reducir conversaciones de 1-2 mensajes</h4>
+    <p>36% en Abril mueren inmediatamente. Si el cliente no responde al primer mensaje, enviar un segundo mensaje a los 30 min con una foto del producto + precio. Darle algo tangible para que responda.</p>
+  </div>
+  <div class="rec-item">
+    <div class="num">5</div>
+    <h4>Estandarizar el mensaje consultivo</h4>
+    <p>El estilo "¿qué espacio desea iluminar?" funciona mejor. Hacer que el 100% de primeras respuestas usen este formato. Eliminar completamente el saludo genérico sin pregunta.</p>
+  </div>
+  <div class="rec-item">
+    <div class="num">6</div>
+    <h4>Preparar fichas Triproof (producto #1 en Abril)</h4>
+    <p>Triproof desplazó a Paneles como el más consultado. El equipo debe tener ficha técnica + precio + foto + casos de uso listos para enviar en un solo mensaje.</p>
+  </div>
+  <div class="rec-item">
+    <div class="num">7</div>
+    <h4>Atención a las 13:00 y horario nocturno</h4>
+    <p>A las 13:00 los mensajes recibidos no bajan pero los enviados sí. Escalonar almuerzos. Para 20:00-22:00 (467 msgs/mes), configurar autorespuesta con catálogo digital.</p>
+  </div>
+  <div class="rec-item">
+    <div class="num">8</div>
+    <h4>Usar descuento y urgencia como palanca</h4>
+    <p>Solo 25 menciones de descuento en 2 meses. Implementar "descuento por volumen" o "precio especial esta semana" para leads que piden cotización pero no cierran en 48h.</p>
+  </div>
+</div>
+
+<!-- RESUMEN -->
+<h2 class="section-title">📋 Veredicto Final</h2>
+
+<div class="card" style="border: 2px solid var(--accent); background: #fffcf8;">
+  <p style="font-size:0.95rem;line-height:1.8">
+    <strong>El equipo nuevo de Mar-Abr 2026 trajo avances reales:</strong> eliminó el "muro de datos", adoptó un estilo consultivo, e introdujo seguimiento activo. Sin embargo, <strong>Abril muestra una regresión preocupante</strong> en tres métricas clave: seguimiento (55%→19%), entrega de precios (72%→41%), y profundidad de conversación (36% mueren en 1-2 mensajes).
+  </p>
+  <p style="font-size:0.95rem;line-height:1.8;margin-top:14px">
+    <strong style="color:var(--red)">El problema central sigue siendo el mismo: no hay cierre.</strong> El equipo es bueno abriendo conversaciones pero no las lleva a la venta. Solo 6 QRs de pago en 1,563 leads es una tasa de cierre prácticamente de cero en WhatsApp.
+  </p>
+  <p style="font-size:0.95rem;line-height:1.8;margin-top:14px">
+    <strong>Prioridades inmediatas:</strong> (1) Lista de precios copiable en 10 seg, (2) Paso de cierre obligatorio con QR, (3) Recuperar el ritmo de seguimiento de Marzo, (4) Ficha express de Triproof.
+  </p>
+</div>
+
+<div style="text-align:center;padding:40px;color:var(--dim);font-size:0.8rem;">
+  Análisis Mar-Abr 2026 · 1,696 conversaciones · 14,180 mensajes · Witronix LED
+</div>
+
+</div>
+</body>
+</html>

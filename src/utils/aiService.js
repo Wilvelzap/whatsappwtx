@@ -53,6 +53,10 @@ export const generateAIReport = async (apiKey, kpis, insights) => {
     - High Value Leads (Score > 35): ${kpis.highValueCount}
     - Response Speed Critical (> 4h): ${(kpis.responseDistribution?.find(d => d.label.includes('> 4')) || { count: 0 }).count}
     - Night Queries (8PM-7AM): ${kpis.nightQueries}
+    - Top Product Demanded: ${kpis.topProducts && kpis.topProducts.length > 0 ? kpis.topProducts[0].term : 'N/A'}
+    - Funnel Rates: Quotes Sent (${kpis.quoteRate || 0}%), Prices Given (${kpis.priceRate || 0}%), QR/Payments Asked (${kpis.qrRate || 0}%)
+    - Depth of Chats: % of chats with 1-2 msgs (abandoned): ${kpis.totalLeads > 0 && kpis.depthDistribution ? Math.round((kpis.depthDistribution['1-2 msgs'] / kpis.totalLeads) * 100) : 0}% vs Deep chats (11+ msgs): ${kpis.totalLeads > 0 && kpis.depthDistribution ? Math.round((kpis.depthDistribution['11+ msgs'] / kpis.totalLeads) * 100) : 0}%
+    - Agent Reply Style: % Consultative First Message: ${kpis.consultativeFirstRate || 0}%
     
     CURRENT INSIGHTS DETECTED:
     ${insights.map(i => `- ${i.title}: ${i.issue}`).join('\n')}

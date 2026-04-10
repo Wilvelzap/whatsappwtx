@@ -162,6 +162,8 @@ const processData = (data) => {
         const leadInfo = extractLeadInfo(messages);
         const responseMetrics = calculateResponseMetrics(messages);
         const funnelStep = detectFunnelStep(messages);
+        const hasFollowUp = detectFollowUp(messages);
+        const replyStyle = detectReplyStyle(messages);
         const score = calculateLeadScore(messages, leadInfo);
 
         return {
@@ -170,6 +172,8 @@ const processData = (data) => {
             ...leadInfo,
             ...responseMetrics,
             funnelStep,
+            hasFollowUp,
+            replyStyle,
             score,
             // Smart Filter: Only High Value if score > 35
             isHighValue: score >= 35
@@ -184,7 +188,17 @@ const extractLeadInfo = (messages) => {
     let nit = null;
     let name = null;
     let projectType = null;
+    let products = [];
     const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+
+    const PRODUCT_KEYWORDS = {
+        'Paneles LED': ['panel', 'paneles'],
+        'Triproof': ['triproof', 'hermetica', 'hermética'],
+        'Campanas UFO': ['campana', 'ufo', 'industrial'],
+        'Focos': ['foco', 'bulbo'],
+        'Tubos': ['tubo'],
+        'Cintas LED': ['cinta', 'tira']
+    };
 
     messages.forEach(m => {
         const content = m.content;
@@ -192,6 +206,13 @@ const extractLeadInfo = (messages) => {
         if (foundEmail && !foundEmail[0].includes('w.app')) email = foundEmail[0];
 
         const lower = content.toLowerCase();
+
+        // Product detection
+        Object.keys(PRODUCT_KEYWORDS).forEach(prodName => {
+            if (PRODUCT_KEYWORDS[prodName].some(kw => lower.includes(kw)) && !products.includes(prodName)) {
+                products.push(prodName);
+            }
+        });
 
         // Robust extraction with regex split
         if (lower.includes('nombre:')) {
@@ -211,7 +232,7 @@ const extractLeadInfo = (messages) => {
         }
     });
 
-    return { email, nit, capturedName: name, projectType };
+    return { email, nit, capturedName: name, projectType, products };
 };
 
 const calculateResponseMetrics = (messages) => {
@@ -251,11 +272,41 @@ const calculateResponseMetrics = (messages) => {
 };
 
 const detectFunnelStep = (messages) => {
-    const contentStr = messages.map(m => m.content.toLowerCase()).join(' ');
-    if (contentStr.includes('.pdf') || contentStr.includes('cotización enviada')) return 'Quote Sent';
-    if (contentStr.includes('@') || contentStr.includes('nit:')) return 'Lead Captured';
+    const sendedStr = messages.filter(m => m.type === 'Sended').map(m => m.content.toLowerCase()).join(' ');
+    
+    // Funnel stages (from highest to lowest priority)
+    if (sendedStr.includes('qr') || sendedStr.includes('transferencia') || sendedStr.includes('cuenta bancaria')) return 'Payment/QR Sent';
+    if (sendedStr.includes('.pdf') || sendedStr.includes('cotización enviada')) return 'Quote Sent';
+    if (sendedStr.includes('bs') || sendedStr.includes('$') || sendedStr.includes('bolivianos')) return 'Price Given';
+    if (sendedStr.includes('@') || messages.some(m => m.content.toLowerCase().includes('nit:'))) return 'Lead Captured';
     if (messages.some(m => m.type === 'Sended')) return 'Engaged';
     return 'Inquiry';
+};
+
+const detectFollowUp = (messages) => {
+    let hasFollowUp = false;
+    for (let i = 0; i < messages.length - 1; i++) {
+        if (messages[i].type === 'Sended' && messages[i+1].type === 'Sended') {
+            const d1 = parseDate(messages[i].date);
+            const d2 = parseDate(messages[i+1].date);
+            if (d1 && d2 && differenceInMinutes(d2, d1) > 60) {
+                hasFollowUp = true;
+                break;
+            }
+        }
+    }
+    return hasFollowUp;
+};
+
+const detectReplyStyle = (messages) => {
+    const firstWitronixMsg = messages.find(m => m.type === 'Sended');
+    if (!firstWitronixMsg) return 'Sin Respuesta';
+    
+    const lower = firstWitronixMsg.content.toLowerCase();
+    if (lower.includes('?') || lower.includes('iluminar') || lower.includes('proyecto') || lower.includes('buscaba')) return 'Pregunta Consultiva';
+    if (lower.includes('bs') || lower.includes('usd') || lower.includes('$')) return 'Cotización Directa';
+    if (lower.includes('nit') || lower.includes('factura')) return 'Solicita Datos';
+    return 'Saludo de Marca';
 };
 
 // Main Export
@@ -371,6 +422,36 @@ export const getKPIs = (chats, dateRange = null, ignoredNumbers = []) => {
         }).length;
     }, 0);
 
+    // Depth Distribution
+    const depthDistribution = { '1-2 msgs': 0, '3-5 msgs': 0, '6-10 msgs': 0, '11+ msgs': 0 };
+    filteredChats.forEach(c => {
+        const count = c.messages.length;
+        if (count <= 2) depthDistribution['1-2 msgs']++;
+        else if (count <= 5) depthDistribution['3-5 msgs']++;
+        else if (count <= 10) depthDistribution['6-10 msgs']++;
+        else depthDistribution['11+ msgs']++;
+    });
+
+    // Reply Styles & Products
+    const replyStyles = {};
+    const productStats = {};
+    filteredChats.forEach(c => {
+        if (!replyStyles[c.replyStyle]) replyStyles[c.replyStyle] = 0;
+        replyStyles[c.replyStyle]++;
+        
+        if (c.products && c.products.length > 0) {
+            c.products.forEach(p => {
+                if (!productStats[p]) productStats[p] = 0;
+                productStats[p]++;
+            });
+        }
+    });
+
+    // Format products to array sorted
+    const topProducts = Object.keys(productStats)
+        .map(p => ({ term: p, count: productStats[p] }))
+        .sort((a, b) => b.count - a.count);
+
     return {
         totalLeads,
         totalMsgs,
@@ -388,6 +469,15 @@ export const getKPIs = (chats, dateRange = null, ignoredNumbers = []) => {
             { label: '> 4 Horas', count: dist.critical, perc: 'Crítico', color: '#ef4444' }
         ],
         totalResponses: dist.fast + dist.good + dist.medium + dist.slow + dist.critical,
+        depthDistribution,
+        replyStyles,
+        topProducts,
+        // Funnel & Rates
+        quotesSent: filteredChats.filter(c => c.funnelStep === 'Quote Sent' || c.funnelStep === 'Payment/QR Sent').length,
+        pricesGiven: filteredChats.filter(c => c.funnelStep === 'Price Given' || c.funnelStep === 'Quote Sent' || c.funnelStep === 'Payment/QR Sent').length,
+        followUps: filteredChats.filter(c => c.hasFollowUp).length,
+        qrsSent: filteredChats.filter(c => c.funnelStep === 'Payment/QR Sent').length,
+        consultativeFirstRate: totalLeads > 0 ? Math.round((replyStyles['Pregunta Consultiva'] || 0) / totalLeads * 100) : 0,
         // SMART SORTED HIGH VALUE
         highValueContacts: filteredChats.filter(c => c.isHighValue).sort((a, b) => b.score - a.score),
         emails: filteredChats.map(c => ({ Nombre: c.capturedName || 'Cliente', Email: c.email, Telefono: c.chatId, Score: c.score })).filter(e => e.Email),
@@ -398,7 +488,7 @@ export const getKPIs = (chats, dateRange = null, ignoredNumbers = []) => {
         impatience,
         nightQueries,
         activeUsers: filteredChats.length,
-        newConversations: dateRange && dateRange.start ? newConversations : filteredChats.length, // If no range, all are "new" in history context? Or just total? Let's match total
+        newConversations: dateRange && dateRange.start ? newConversations : filteredChats.length,
         nits: filteredChats.filter(c => c.nit).length,
         // Using filtered count
         highValueCount: filteredChats.filter(c => c.isHighValue).length
@@ -466,12 +556,26 @@ export const getComparisonData = (chats, period = 'month') => {
                 totalBusinessResp: 0,
                 responseCount: 0,
                 fastResponses: 0,
-                ghostingCount: 0
+                ghostingCount: 0,
+                engancheCount: 0,
+                priceGiven: 0,
+                quoteSent: 0,
+                qrSent: 0,
+                followUps: 0,
+                consultative: 0
             };
         }
 
         groups[key].leads++;
         groups[key].totalResponseTime += chat.avgResponseTime;
+
+        // Funnel & Rates Over Time
+        if (chat.funnelStep === 'Engaged' || chat.funnelStep === 'Lead Captured' || chat.funnelStep === 'Quote Sent' || chat.funnelStep === 'Price Given' || chat.funnelStep === 'Payment/QR Sent') groups[key].engancheCount++;
+        if (chat.funnelStep === 'Price Given' || chat.funnelStep === 'Quote Sent' || chat.funnelStep === 'Payment/QR Sent') groups[key].priceGiven++;
+        if (chat.funnelStep === 'Quote Sent' || chat.funnelStep === 'Payment/QR Sent') groups[key].quoteSent++;
+        if (chat.funnelStep === 'Payment/QR Sent') groups[key].qrSent++;
+        if (chat.hasFollowUp) groups[key].followUps++;
+        if (chat.replyStyle === 'Pregunta Consultiva') groups[key].consultative++;
 
         // Backward compatibility: If cached data doesn't have the new metric, calculate it now
         let busTime = chat.avgBusinessResponseTime;
@@ -501,6 +605,12 @@ export const getComparisonData = (chats, period = 'month') => {
             avgResp: g.responseCount > 0 ? Math.round(g.totalResponseTime / g.responseCount) : 0,
             avgBusinessResp: g.responseCount > 0 ? Math.round(g.totalBusinessResp / g.responseCount) : 0,
             fastRate: g.leads > 0 ? Math.round((g.fastResponses / g.leads) * 100) : 0,
-            ghostingRate: g.leads > 0 ? Math.round((g.ghostingCount / g.leads) * 100) : 0
+            ghostingRate: g.leads > 0 ? Math.round((g.ghostingCount / g.leads) * 100) : 0,
+            engancheRate: g.leads > 0 ? Math.round((g.engancheCount / g.leads) * 100) : 0,
+            priceRate: g.leads > 0 ? Math.round((g.priceGiven / g.leads) * 100) : 0,
+            quoteRate: g.leads > 0 ? Math.round((g.quoteSent / g.leads) * 100) : 0,
+            qrRate: g.leads > 0 ? Math.round((g.qrSent / g.leads) * 100) : 0,
+            followUpRate: g.leads > 0 ? Math.round((g.followUps / g.leads) * 100) : 0,
+            consultativeRate: g.leads > 0 ? Math.round((g.consultative / g.leads) * 100) : 0
         }));
 };
